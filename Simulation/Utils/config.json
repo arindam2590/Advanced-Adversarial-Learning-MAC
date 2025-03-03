@@ -1,0 +1,12 @@
+{
+    "DATA_DIR": "Data/",
+    "TEST_EPISODES": 50,
+    "GAMMA": 0.95,
+    "ALPHA": 0.001,
+    "EPSILON": 1.0,
+    "EPSILON_MIN": 0.010,
+    "EPSILON_DECAY": 0.997,
+    "UPDATE_RATE": 5,
+    "BATCH_SIZE": 64,
+    "BUFFER_SIZE": 5000
+}
