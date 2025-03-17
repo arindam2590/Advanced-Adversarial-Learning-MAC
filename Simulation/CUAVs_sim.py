@@ -4,6 +4,7 @@ import time
 from pettingzoo.atari import combat_plane_v2
 from .agent import DRLAgent
 from model.dqntorch import DQNModel
+from .Utils.utils import DataVisualization
 
 class Simulation:
     def __init__(self, args, train_mode, train_episodes=100, render=False):
@@ -18,7 +19,7 @@ class Simulation:
             print(f'Exception: Data directory is not exists. Unable to load saved model!!')
             exit(0)
 
-        self.env = combat_plane_v2.env(game_version="bi-plane", guided_missile=True, render_mode="human")
+        self.env = combat_plane_v2.parallel_env(game_version="bi-plane", guided_missile=True, render_mode="human")
         self.env.reset(seed=42)
         self.agent = DRLAgent(self.env)
 
@@ -55,6 +56,10 @@ class Simulation:
                 print(f'=' * 38 + ' Training Phase ' + '=' * 39)
                 self.train_start_time = time.time()
                 result = self.agent.train_value_agent(self.train_episodes, self.render)
+                
+                train_data_visual = DataVisualization(self.train_episodes, result, self.agent.model_name, self.agent.train_data_filename)
+                train_data_visual.save_data()
+                
                 self.train_end_time = time.time()
                 elapsed_time = self.train_end_time - self.train_start_time
                 print(f'Info: Training has been completed...')
@@ -77,7 +82,7 @@ class Simulation:
         self.is_env_initialized = True
         if self.agent.model_name == 'DQN':
             print(f'Info: Selected Model is {self.agent.model_name}')
-            self.agent.model = DQNModel(self.agent.state_size, self.agent.action_size, self.env, self.agent.device)
+            self.agent.model = DQNModel(self.agent.input_channels, self.agent.action_size, self.env, self.agent.device)
             print(f'Info: DQN Model is assigned for the Training and Testing of Agent...')
         elif self.agent.model_name == 'Double DQN':
             print(f'Info: Model Selected: {self.agent.model_name}')
