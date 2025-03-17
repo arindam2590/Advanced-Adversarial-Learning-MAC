@@ -8,5 +8,6 @@
     "EPSILON_DECAY": 0.997,
     "UPDATE_RATE": 5,
     "BATCH_SIZE": 64,
+    "MAX_STEP": 200,
     "BUFFER_SIZE": 5000
 }
