@@ -6,6 +6,7 @@ from .agent import DRLAgent
 from model.dqntorch import DQNModel
 from .Utils.utils import DataVisualization
 
+
 class Simulation:
     def __init__(self, args, train_mode, train_episodes=100, render=False):
         param_dir = 'Simulation/Utils/'
@@ -19,11 +20,13 @@ class Simulation:
             print(f'Exception: Data directory is not exists. Unable to load saved model!!')
             exit(0)
 
-        self.env = combat_plane_v2.parallel_env(game_version="bi-plane", guided_missile=True, render_mode="human")
-        self.env.reset(seed=42)
+        if render:
+            self.env = combat_plane_v2.parallel_env(game_version="bi-plane", guided_missile=True, render_mode="human")
+        else:
+            self.env = combat_plane_v2.parallel_env(game_version="bi-plane", guided_missile=True, render_mode=None)
+        self.render = render
         self.agent = DRLAgent(self.env)
 
-        self.render = render
         self.train_mode = train_mode
         self.is_trained = None
         self.train_episodes = train_episodes
@@ -55,7 +58,7 @@ class Simulation:
             if self.train_mode and not self.is_trained:
                 print(f'=' * 38 + ' Training Phase ' + '=' * 39)
                 self.train_start_time = time.time()
-                result = self.agent.train_value_agent(self.train_episodes, self.render)
+                result = self.agent.train_value_agent(self.train_episodes)
                 
                 train_data_visual = DataVisualization(self.train_episodes, result, self.agent.model_name, self.agent.train_data_filename)
                 train_data_visual.save_data()
@@ -82,7 +85,7 @@ class Simulation:
         self.is_env_initialized = True
         if self.agent.model_name == 'DQN':
             print(f'Info: Selected Model is {self.agent.model_name}')
-            self.agent.model = DQNModel(self.agent.input_channels, self.agent.action_size, self.env, self.agent.device)
+            self.agent.model = DQNModel(self.agent.state_size, self.agent.action_size, self.env, self.agent.device, self.agent.frame_stack)
             print(f'Info: DQN Model is assigned for the Training and Testing of Agent...')
         elif self.agent.model_name == 'Double DQN':
             print(f'Info: Model Selected: {self.agent.model_name}')
@@ -91,6 +94,7 @@ class Simulation:
             print(f'Info: Model Selected: {self.agent.model_name}')
             print(f'Info: Dueling DQN Model is assigned for the Training and Testing of Agent...')
 
+        self.agent.model_save_path = 'Data/'
         self.agent.model_filename = self.agent.model_name + '_' + str(self.train_episodes) + '_ep_final.pt'
         self.agent.train_data_filename = self.agent.model_name + '_' + str(self.train_episodes) + '_training_data.xlsx'
 

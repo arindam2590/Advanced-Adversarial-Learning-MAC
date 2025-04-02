@@ -1,7 +1,8 @@
 import json
 import torch
 import numpy as np
-from .Utils.preprocessing import preprocess_state
+from model.preprocessing import FrameStack
+
 
 class DRLAgent:
     def __init__(self, env):
@@ -10,19 +11,22 @@ class DRLAgent:
             self.params = json.load(file)
 
         self.env = env
-        self.state_size = np.prod(env.observation_space(env.agents[0]).shape)
-        #self.input_channels = env.observation_space(env.agents[0]).shape[2]
-        self.input_channels = 1
-        self.action_size = env.action_space(env.agents[0]).n
+        self.action_size = env.action_space(env.possible_agents[0]).n
+        self.state_size = self.params['STACK_SIZE']
+        self.frame_stack = FrameStack(self.env.possible_agents, stack_size=self.state_size)
         self.batch_size = self.params['BATCH_SIZE']
         self.max_step = self.params['MAX_STEP']
 
         self.model = None
         self.model_name = None
         self.model_filename = None
+        self.model_save_path = None
         self.train_data_filename = None
 
         if torch.cuda.is_available():
+            gpu_memory = torch.cuda.get_device_properties(0).total_memory
+            optimal_batch_size = min(64, int(gpu_memory // (84 * 84 * 1 * 4)))
+            self.batch_size = optimal_batch_size
             self.device = torch.device("cuda")
             print(f'Info: GPU is available...')
         else:
@@ -30,19 +34,23 @@ class DRLAgent:
             print(f'Info: CPU is available...')
         print(f'-' * 93)
 
-    def train_value_agent(self, episodes, render):
+    def train_value_agent(self, episodes):
         print(f'Info: Agent Training has been started over Combat Environment...')
         print(f'-' * 93)
-        
+
         time_steps, saved_model = 0, False
-        returns_per_episode = np.zeros(episodes)
+        returns_per_episode = np.zeros((episodes, 2))
+        training_error = np.zeros((episodes, 2))
         epsilon_history = np.zeros(episodes)
         steps_per_episode = np.zeros(episodes)
-        training_error = np.zeros(episodes)
+        
         for episode in range(episodes):
-            observations_frame, _ = self.env.reset()
-            step = 0
+            observations_frame, _ = self.env.reset(seed=42)
+            self.frame_stack.init_stack(observations_frame, self.env.agents)
+            
+            step, flag = 0, True
             done = {agent: True for agent in self.env.agents}
+            state = {agent: None for agent in self.env.agents}
             loses = {agent: 0.0 for agent in self.env.agents}
             actions = returns = {agent: 0 for agent in self.env.agents}
 
@@ -52,22 +60,23 @@ class DRLAgent:
                     self.model.update_target_network()
 
                 for agent in self.env.agents:
-                    state = preprocess_state(observations_frame[agent])
-                    actions[agent] = self.model.act(state, agent)
+                    state[agent] = self.frame_stack.get_state(agent)
+                    actions[agent] = self.model.act(state[agent], agent)
                 new_observations_frame, rewards, terminations, truncations, infos = self.env.step(actions)
-
+                new_state = self.frame_stack.update_frame_stack(new_observations_frame)                
                 for agent in self.env.agents:
                     returns[agent] += rewards[agent]
                     done[agent] = terminations[agent] or truncations[agent]
                 
-                self.model.remember(observations_frame, actions, rewards, new_observations_frame, terminations)
+                self.model.remember(state, actions, rewards, new_state, terminations)
                 observations_frame = new_observations_frame
                 step += 1
 
-                if any(done.values()):
-                    print(f"Episode {episode + 1}/{episodes} - Steps: {step}, Return: {returns:.2f}, Epsilon: "
-                          f"{self.model.epsilon:.3f}, Our Agent Loss: {loses[0]:0.4f}, "
-                          f"Opponent Agent Loss: {loses[1]:0.4f}")
+                if any(done.values()) or step == self.max_step:
+                    print(f"Episode {episode + 1}/{episodes} - Steps: {step}")
+                    #print(f"Episode {episode + 1}/{episodes} - Steps: {step}, Return: {returns:.2f}, Epsilon: "
+                     #     f"{self.model.epsilon:.3f}, Our Agent Loss: {loses[0]:0.4f}, "
+                      #    f"Opponent Agent Loss: {loses[1]:0.4f}")
                     break
 
                 if len(self.model.replay_buffer_our_agent.buffer) > self.batch_size:
@@ -77,15 +86,16 @@ class DRLAgent:
                         else:
                             loses[agent] = self.model.train_opponent_agent(self.batch_size)
             self.model.epsilon = max(self.model.epsilon * self.model.epsilon_decay, self.model.epsilon_min)
-            returns_per_episode[episode] = returns
-            epsilon_history[episode] = self.model.epsilon
+            for i, agent in enumerate(self.env.agents):
+                returns_per_episode[episode, i] = returns[agent]
+                training_error[episode, i] = loses[agent]
             steps_per_episode[episode] = step
-            training_error[episode] = loss
+            epsilon_history[episode] = self.model.epsilon           
         
         print(f'-' * 93)
         if not saved_model:
             self.save_model()
-        print(f'-' * 93)    
+        print(f'-' * 93)  
         return [returns_per_episode, epsilon_history, training_error, steps_per_episode, None]
         
     def save_model(self):
