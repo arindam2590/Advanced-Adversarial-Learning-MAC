@@ -1,4 +1,8 @@
 import argparse
+import json
+import os
+import pandas as pd
+import numpy as np
 
 
 def setup_parser():
@@ -34,10 +38,12 @@ class DataVisualization:
             
     def save_data(self):
         filepath = self.fig_dir + self.train_data_filename
-        df = pd.DataFrame({'Rewards': self.returns,
+        df = pd.DataFrame({'Reward Agent 0': np.array(self.returns)[:, 0],
+                           'Reward Agent 1': np.array(self.returns)[:, 1],
                            'Steps': self.steps,
                            'Epsilon Decay': self.epsilon_decay_history,
-                           'Training Error': self.training_error})
+                           'Training Error Agent 0': np.array(self.training_error)[:, 0],
+                           'Training Error Agent 1': np.array(self.training_error)[:, 1]})
         if not os.path.isfile(filepath):
             with pd.ExcelWriter(filepath, mode='w') as writer:
                 df.to_excel(writer, sheet_name=self.model)
