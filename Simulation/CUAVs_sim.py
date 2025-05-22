@@ -62,6 +62,10 @@ class Simulation:
                 
                 train_data_visual = DataVisualization(self.train_episodes, result, self.agent.model_name, self.agent.train_data_filename)
                 train_data_visual.save_data()
+                train_data_visual.plot_returns()
+                train_data_visual.plot_episode_length()
+                train_data_visual.plot_training_error()
+                train_data_visual.plot_epsilon_decay()
                 
                 self.train_end_time = time.time()
                 elapsed_time = self.train_end_time - self.train_start_time

@@ -28,7 +28,7 @@ class DRLAgent:
             optimal_batch_size = min(64, int(gpu_memory // (84 * 84 * 1 * 4)))
             self.batch_size = optimal_batch_size
             self.device = torch.device("cuda")
-            print(f'Info: GPU is available...')
+            print(f'Info: GPU is available... and GPU memory: {gpu_memory} GB')
         else:
             self.device = torch.device("cpu")
             print(f'Info: CPU is available...')
