@@ -9,17 +9,27 @@ import random
 
 
 class DQN(nn.Module):
-    def __init__(self, input_channels, action_size):
+    def __init__(self, in_channels, action_size, device):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=8, stride=4)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self.device = device
+        self.conv_layer1 = self.conv_block(in_channels, 32)
+        self.conv_layer2 = self.conv_block(32, 64)
+        self.conv_layer3 = self.conv_block(64, 64)
         
-        self._to_linear = 3136
+        self._to_linear = 64 * 84 *84
+        # self._to_linear = 3136
         #self._initialize_fc(input_channels)
         
         self.fc1 = nn.Linear(self._to_linear, 512)
         self.fc2 = nn.Linear(512, action_size)
+
+    def conv_block(self, in_channels, out_channels):
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            # nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            # nn.ReLU(inplace=True)
+        )
 
     def _initialize_fc(self, input_channels):
         with torch.no_grad():
@@ -31,21 +41,27 @@ class DQN(nn.Module):
             print(self._to_linear)
             
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
+        x = x.to(self.device)
+
+        # x = self.conv_layer1(x)
+        # x = self.conv_layer2(F.max_pool2d(x, 2))
+        # x = self.conv_layer3(F.max_pool2d(x, 2))
+
+        x = F.relu(self.conv_layer1(x))
+        x = F.relu(self.conv_layer2(x))
+        x = F.relu(self.conv_layer3(x))
         x = torch.flatten(x, start_dim=1)
         x = F.relu(self.fc1(x))
         return self.fc2(x)
 
 
 class DQNModel:
-    def __init__(self, input_channels, action_size, env, device, frame_stack):
+    def __init__(self, in_channels, action_size, env, device, frame_stack):
         param_dir = 'Simulation/Utils/'
         with open(param_dir + 'config.json', 'r') as file:
             self.params = json.load(file)
 
-        self.state_size = input_channels
+        self.input_channels = in_channels
         self.action_size = action_size
         self.device = device
         self.env = env
@@ -62,14 +78,14 @@ class DQNModel:
         self.replay_buffer_our_agent = ReplayBuffer(self.buffer_size)
         self.replay_buffer_opponent_agent = ReplayBuffer(self.buffer_size)
 
-        self.main_network_our_agent = DQN(self.state_size, self.action_size).to(device=device)
-        self.target_network_our_agent = DQN(self.state_size, self.action_size).to(device=device)
+        self.main_network_our_agent = DQN(self.input_channels, self.action_size, self.device).to(device=self.device)
+        self.target_network_our_agent = DQN(self.input_channels, self.action_size, self.device).to(device=self.device)
         self.target_network_our_agent.load_state_dict(self.main_network_our_agent.state_dict())
         self.our_agent_loss_fn = nn.MSELoss()
         self.our_agent_optimizer = torch.optim.Adam(self.main_network_our_agent.parameters(), lr=self.alpha)
 
-        self.main_network_opponent_agent = DQN(self.state_size, self.action_size).to(device=device)
-        self.target_network_opponent_agent = DQN(self.state_size, self.action_size).to(device=device)
+        self.main_network_opponent_agent = DQN(self.input_channels, self.action_size, self.device).to(device=self.device)
+        self.target_network_opponent_agent = DQN(self.input_channels, self.action_size, self.device).to(device=self.device)
         self.target_network_opponent_agent.load_state_dict(self.main_network_opponent_agent.state_dict())
         self.opponent_agent_loss_fn = nn.MSELoss()
         self.opponent_agent_optimizer = torch.optim.Adam(self.main_network_opponent_agent.parameters(), lr=self.alpha)
@@ -116,7 +132,12 @@ class DQNModel:
         
         state_batch = torch.tensor(state_batch, dtype=torch.float32, device=self.device)
         next_state_batch = torch.tensor(next_state_batch, dtype=torch.float32, device=self.device)
-        
+
+        # print("Input device:", state_batch.device)
+        # print("Model device:", next(self.main_network_our_agent.parameters()).device)
+        # print("State batch shape:", state_batch.shape)
+        # print("Expected by conv1:", next(self.main_network_our_agent.parameters()).shape)
+
         with torch.no_grad():
             max_next_q = self.target_network_our_agent(next_state_batch).max(dim=1)[0]
             target = rewards + self.gamma * max_next_q * (~dones)
