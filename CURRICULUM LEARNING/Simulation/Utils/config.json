@@ -1,0 +1,53 @@
+{
+    "DATA_DIR": "Data/",
+    "TEST_EPISODES": 125,
+    "GAMMA": 0.995,
+    "ALPHA": 0.001,
+    "EPSILON": 1.0,
+    "EPSILON_MIN": 0.010,
+    "EPSILON_DECAY": 0.997,
+    "UPDATE_RATE": 5,
+    "STACK_SIZE": 4,
+    "BATCH_SIZE": 4,
+    "MAX_STEP": 200,
+    "BUFFER_SIZE": 5000,
+
+    "CURRICULUM_ENABLED": true,
+    "CURRICULUM_LEVELS": 5,
+    "CURRICULUM_PROGRESSION": "threshold", 
+    "CURRICULUM_THRESHOLD": 0.05,          
+    "CURRICULUM_EVALUATION_EPISODES": 50,  
+    "CURRICULUM_MIN_EPISODES": 300,        
+    "CURRICULUM_FIXED_INTERVAL": 300,      
+    "CURRICULUM_SAVE_CHECKPOINTS": true,
+
+    "PERFORMANCE_METRICS_ENABLED": true,
+    "CPS_ALPHA": 0.25,
+    "CPS_BETA": 0.25,
+    "CPS_GAMMA": 0.25,
+    "CPS_DELTA": 0.25,
+    "SUCCESS_THRESHOLD": 0.0,
+    "CAPTURE_REWARD_THRESHOLD": 10.0,
+    "DECEPTION_DETECTION_SENSITIVITY": 3,
+    "PERFORMANCE_WINDOW_SIZE": 50,
+    "EXCEL_SAVE_FREQUENCY": 10,
+
+    "performance_metrics": {
+        "cps_weights": {
+            "episode_return": 0.3,
+            "success_rate": 0.25,
+            "time_to_intercept": 0.2,
+            "deception_resistance": 0.25
+        },
+        "success_criteria": {
+            "min_return": 0,
+            "max_steps_ratio": 0.8,
+            "require_capture": true
+        },
+        "export_settings": {
+            "save_frequency": 10,
+            "excel_export": true,
+            "plot_generation": true
+        }
+    }
+}
